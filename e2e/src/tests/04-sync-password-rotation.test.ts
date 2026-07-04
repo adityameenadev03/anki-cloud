@@ -24,7 +24,7 @@ describe("Sync password rotation", () => {
     await seedLocalStorage(stack.dbPath, user.id);
     const sessionToken = await createTestSession(stack.dbPath, user.id);
     const api = makeApiClient(`http://localhost:${stack.apiPort}`);
-    const creds = await api.getSyncPassword(sessionToken);
+    const creds = await api.setSyncPassword(sessionToken, "rotation-initial-pass");
     oldPassword = creds.password as string;
   });
 
@@ -49,7 +49,7 @@ describe("Sync password rotation", () => {
     const freshToken = await createTestSession(dbPath, freshUser.id);
     const freshApi = makeApiClient(`http://localhost:${apiPort}`);
 
-    const initialCreds = await freshApi.getSyncPassword(freshToken);
+    const initialCreds = await freshApi.setSyncPassword(freshToken, "rotation-fresh-pass");
     const initialPassword = initialCreds.password as string;
 
     // Verify initial password works

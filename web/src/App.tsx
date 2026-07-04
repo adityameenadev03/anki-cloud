@@ -1,6 +1,6 @@
 // Copyright 2026 Archont Soft Daniel Klimuntowski
 // Licensed under the Elastic License 2.0 — see LICENSE in the repository root.
-import {useEffect, useState} from "react";
+import {useEffect, useState, type FormEvent} from "react";
 import {createAuthClient} from "better-auth/client";
 
 const authClient = createAuthClient({baseURL: window.location.origin, basePath: "/v1/auth"});
@@ -84,7 +84,11 @@ export default function App() {
                 />
                 <SyncPasswordSection
                     creds={syncCreds}
-                    onReset={async () => {
+                    onSet={async (password) => {
+                        const sc = await api.setSyncPassword(password);
+                        setSyncCreds(sc);
+                    }}
+                    onGenerate={async () => {
                         const sc = await api.resetSyncPassword();
                         setSyncCreds(sc);
                     }}
@@ -434,14 +438,25 @@ function ApiKeysSection({
 
 function SyncPasswordSection({
                                  creds,
-                                 onReset,
+                                 onSet,
+                                 onGenerate,
                              }: {
     creds: SyncCredentials | null;
-    onReset: () => Promise<void>;
+    onSet: (password: string) => Promise<void>;
+    onGenerate: () => Promise<void>;
 }) {
     const [copied, setCopied] = useState<"username" | "password" | null>(null);
-    const [resetting, setResetting] = useState(false);
-    const syncServerUrl = import.meta.env.VITE_SYNC_SERVER_URL ?? `http://${globalThis.location.hostname}:8080`;
+    const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [formError, setFormError] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [generating, setGenerating] = useState(false);
+    const [showChangeForm, setShowChangeForm] = useState(false);
+    const syncServerUrl =
+        import.meta.env.VITE_SYNC_SERVER_URL ??
+        (globalThis.location.hostname.startsWith("app.")
+            ? `https://${globalThis.location.hostname.replace(/^app\./, "sync.")}`
+            : `http://${globalThis.location.hostname}:8080`);
 
     const copy = async (text: string, field: "username" | "password") => {
         await navigator.clipboard.writeText(text);
@@ -449,23 +464,65 @@ function SyncPasswordSection({
         setTimeout(() => setCopied(null), 2000);
     };
 
-    const handleReset = async () => {
-        if (!confirm("Generate a new sync password? Your current password will stop working immediately."))
+    const handleSet = async (e: FormEvent) => {
+        e.preventDefault();
+        if (password.length < 8) {
+            setFormError("Password must be at least 8 characters.");
             return;
-        setResetting(true);
+        }
+        if (password !== confirmPassword) {
+            setFormError("Passwords do not match.");
+            return;
+        }
+        setFormError(null);
+        setSaving(true);
         try {
-            await onReset();
+            await onSet(password);
+            setPassword("");
+            setConfirmPassword("");
+            setShowChangeForm(false);
+        } catch (err) {
+            setFormError(err instanceof Error ? err.message : "Failed to save password.");
         } finally {
-            setResetting(false);
+            setSaving(false);
         }
     };
+
+    const handleGenerate = async () => {
+        const msg = creds?.isSet
+            ? "Generate a new random sync password? Your current password will stop working immediately."
+            : "Generate a random sync password?";
+        if (!confirm(msg)) return;
+        setGenerating(true);
+        setFormError(null);
+        try {
+            await onGenerate();
+            setPassword("");
+            setConfirmPassword("");
+            setShowChangeForm(false);
+        } catch (err) {
+            setFormError(err instanceof Error ? err.message : "Failed to generate password.");
+        } finally {
+            setGenerating(false);
+        }
+    };
+
+    const showSetForm = !creds?.isSet || showChangeForm;
 
     return (
         <section className="card">
             <h2 className="card-title">Anki Sync</h2>
             <p className="muted" style={{marginBottom: "16px"}}>
-                <p>In Anki: <strong>Preferences → Syncing → Self-hosted sync server</strong>, set the URL to <code className="key-value" style={{display: "inline", padding: "2px 6px"}}>{syncServerUrl}</code>.</p>
-                <p>Then under <strong>AnkiWeb Account</strong>, click <strong>Log In</strong> (or Log Out first, then Log In) and enter these credentials.</p>
+                <p>
+                    <strong>AnkiDroid:</strong> Settings → Advanced → Custom sync server →{" "}
+                    <code className="key-value" style={{display: "inline", padding: "2px 6px"}}>
+                        {syncServerUrl}
+                    </code>
+                </p>
+                <p>
+                    <strong>Anki Desktop:</strong> Preferences → Syncing → Self-hosted sync server → same URL.
+                    Then sync and enter the username and password below.
+                </p>
             </p>
 
             <div className="form-row" style={{marginBottom: "12px"}}>
@@ -481,22 +538,22 @@ function SyncPasswordSection({
                 )}
             </div>
 
-            <div className="form-row" style={{marginBottom: "16px"}}>
-                <label className="form-label" style={{minWidth: "90px", margin: 0}}>Password</label>
-                {creds?.password ? (
-                    <>
-                        <code className="key-value" style={{flex: 1}}>{creds.password}</code>
-                        <button
-                            className="btn btn-outline btn-sm"
-                            onClick={() => copy(creds.password!, "password")}
-                        >
-                            {copied === "password" ? "Copied!" : "Copy"}
-                        </button>
-                    </>
-                ) : (
-                    <span className="muted" style={{flex: 1}}>••••••••••••  (set — not shown)</span>
-                )}
-            </div>
+            {creds?.password ? (
+                <div className="form-row" style={{marginBottom: "16px"}}>
+                    <label className="form-label" style={{minWidth: "90px", margin: 0}}>Password</label>
+                    <code className="key-value" style={{flex: 1}}>{creds.password}</code>
+                    <button
+                        className="btn btn-outline btn-sm"
+                        onClick={() => copy(creds.password!, "password")}
+                    >
+                        {copied === "password" ? "Copied!" : "Copy"}
+                    </button>
+                </div>
+            ) : creds?.isSet ? (
+                <p className="muted" style={{marginBottom: "16px"}}>
+                    Password is set (hidden). Use the form below to change it.
+                </p>
+            ) : null}
 
             {creds?.password && (
                 <p className="new-key-warning" style={{marginBottom: "16px"}}>
@@ -504,8 +561,64 @@ function SyncPasswordSection({
                 </p>
             )}
 
-            <button className="btn btn-danger btn-sm" onClick={handleReset} disabled={resetting}>
-                {resetting ? "Resetting…" : "Reset sync password"}
+            {showSetForm ? (
+                <form onSubmit={handleSet} style={{marginBottom: "16px"}}>
+                    <p className="form-label">{creds?.isSet ? "Change sync password" : "Choose sync password"}</p>
+                    <div className="form-row" style={{marginBottom: "8px"}}>
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="At least 8 characters"
+                            className="input"
+                            maxLength={128}
+                            autoComplete="new-password"
+                        />
+                    </div>
+                    <div className="form-row" style={{marginBottom: "8px"}}>
+                        <input
+                            type="password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="Confirm password"
+                            className="input"
+                            maxLength={128}
+                            autoComplete="new-password"
+                        />
+                    </div>
+                    <div className="form-row">
+                        <button type="submit" className="btn btn-primary" disabled={saving}>
+                            {saving ? "Saving…" : creds?.isSet ? "Update password" : "Set password"}
+                        </button>
+                        {creds?.isSet && (
+                            <button
+                                type="button"
+                                className="btn btn-outline"
+                                onClick={() => {
+                                    setShowChangeForm(false);
+                                    setPassword("");
+                                    setConfirmPassword("");
+                                    setFormError(null);
+                                }}
+                            >
+                                Cancel
+                            </button>
+                        )}
+                    </div>
+                    {formError && <p className="form-error">{formError}</p>}
+                </form>
+            ) : (
+                <button
+                    className="btn btn-outline btn-sm"
+                    style={{marginBottom: "16px"}}
+                    onClick={() => setShowChangeForm(true)}
+                >
+                    Change password
+                </button>
+            )}
+
+            <button className="btn btn-danger btn-sm" onClick={handleGenerate} disabled={generating}>
+                {generating ? "Generating…" : "Generate random password"}
             </button>
         </section>
     );

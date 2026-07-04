@@ -442,19 +442,24 @@ echo "-- Sync credentials --"
 
 code=$(api_me GET "/me/sync-password")
 body=$(cat /tmp/smoke_api_body)
-assert_http "GET /me/sync-password (first call) → 200" "200" "$code" "$body"
-assert_contains "username field present" '"username"' "$body"
+assert_http "GET /me/sync-password (before set) → 200" "200" "$code" "$body"
+IS_SET=$(echo "$body" | python3 -c "import sys,json; print(json.load(sys.stdin).get('isSet', False))")
+assert_eq "isSet false before password configured" "False" "$IS_SET"
+
+code=$(api_me_with_body POST "/me/sync-password" '{"password":"smoke-sync-pass-1"}')
+body=$(cat /tmp/smoke_api_body)
+assert_http "POST /me/sync-password (custom) → 200" "200" "$code" "$body"
 SYNC_PASS=$(echo "$body" | python3 -c "import sys,json; print(json.load(sys.stdin)['password'])")
-[[ "$SYNC_PASS" != "None" && -n "$SYNC_PASS" ]] \
-    && pass "password returned on first call" \
-    || fail "password was null on first call"
+assert_eq "custom password echoed once" "smoke-sync-pass-1" "$SYNC_PASS"
 
 code=$(api_me GET "/me/sync-password")
 body=$(cat /tmp/smoke_api_body)
 SYNC_PASS2=$(echo "$body" | python3 -c "import sys,json; print(json.load(sys.stdin)['password'])")
-assert_eq "second call returns null (password already set)" "None" "$SYNC_PASS2"
+IS_SET2=$(echo "$body" | python3 -c "import sys,json; print(json.load(sys.stdin).get('isSet', False))")
+assert_eq "GET returns null password after set" "None" "$SYNC_PASS2"
+assert_eq "isSet true after password configured" "True" "$IS_SET2"
 
-code=$(api_me POST "/me/sync-password/reset")
+code=$(api_me_with_body POST "/me/sync-password/reset" '{}')
 body=$(cat /tmp/smoke_api_body)
 assert_http "POST /me/sync-password/reset → 200" "200" "$code" "$body"
 SYNC_PASS3=$(echo "$body" | python3 -c "import sys,json; print(json.load(sys.stdin)['password'])")

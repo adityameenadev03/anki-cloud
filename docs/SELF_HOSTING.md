@@ -30,9 +30,9 @@ You need a Google OAuth 2.0 app to handle sign-in and Google Drive access.
       will fail with an "access blocked" error.
 4. Navigate to **APIs & Services → Credentials → Create Credentials → OAuth client ID**:
     - Application type: **Web application**
-    - Add these **Authorized redirect URIs**:
+    - Add these **Authorized redirect URIs** (adjust port if not using Vite web UI on 5173):
       ```
-      http://localhost:3000/v1/auth/callback/google
+      http://localhost:5173/v1/auth/callback/google
       http://localhost:5173/v1/me/storage/connect/google/callback
       ```
 5. Copy the **Client ID** and **Client Secret** — you'll need them in the next step.
@@ -40,9 +40,9 @@ You need a Google OAuth 2.0 app to handle sign-in and Google Drive access.
 ### GitHub (optional — for GitHub sign-in)
 
 1. Go to [GitHub Settings → Developer settings → OAuth Apps](https://github.com/settings/developers) and click **New OAuth App**.
-2. Fill in **Application name** (e.g. `anki-cloud`), **Homepage URL** (e.g. `http://localhost:3000`), and set the **Authorization callback URL** to:
+2. Fill in **Application name** (e.g. `anki-cloud`), **Homepage URL** (e.g. `http://localhost:5173`), and set the **Authorization callback URL** to:
    ```
-   http://localhost:3000/v1/auth/callback/github
+   http://localhost:5173/v1/auth/callback/github
    ```
 3. Click **Register application**, then click **Generate a new client secret**.
 4. Copy the **Client ID** and **Client Secret** — you'll need them in the next step.
@@ -66,8 +66,9 @@ SIDECAR_TOKEN=<generated>
 BETTER_AUTH_SECRET=<generated>
 TOKEN_ENCRYPTION_KEY=<generated>
 
-# Public base URL of the API server — used by Better Auth for OAuth callbacks
-BETTER_AUTH_URL=http://localhost:3000
+# Public base URL of the API server — used by Better Auth for OAuth callbacks.
+# Use http://localhost:5173 when running the Vite web UI (standard for local dev).
+BETTER_AUTH_URL=http://localhost:5173
 
 # From Step 1 — Google
 GOOGLE_CLIENT_ID=<your-google-client-id>
@@ -153,11 +154,11 @@ docker compose -f docker-compose.yml -f docker-compose.cloud.yml up
 ## Troubleshooting
 
 **OAuth redirect mismatch error (Google)**
-Verify the redirect URIs in Google Cloud Console exactly match those derived from `BETTER_AUTH_URL` and `GOOGLE_DRIVE_REDIRECT_URI` in your `.env`. For local dev: `http://localhost:3000/v1/auth/callback/google` (sign-in)
+Verify the redirect URIs in Google Cloud Console exactly match those derived from `BETTER_AUTH_URL` and `GOOGLE_DRIVE_REDIRECT_URI` in your `.env`. For local dev (with Vite on 5173): `http://localhost:5173/v1/auth/callback/google` (sign-in)
 and `http://localhost:5173/v1/me/storage/connect/google/callback` (Drive). Trailing slashes and `http` vs `https` matter.
 
 **OAuth redirect mismatch error (GitHub)**
-Verify the Authorization callback URL in your GitHub OAuth App exactly matches `{BETTER_AUTH_URL}/v1/auth/callback/github`. For local dev: `http://localhost:3000/v1/auth/callback/github`. Leave `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` empty in `.env` to disable the GitHub button entirely.
+Verify the Authorization callback URL in your GitHub OAuth App exactly matches `{BETTER_AUTH_URL}/v1/auth/callback/github`. For local dev: `http://localhost:5173/v1/auth/callback/github`. Leave `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` empty in `.env` to disable the GitHub button entirely.
 
 **Anki says "sync server not configured"**
 Ensure the sync URL in Anki is `http://localhost:8080` (no trailing slash) and the stack is running.

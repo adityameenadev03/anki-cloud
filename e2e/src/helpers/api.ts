@@ -4,7 +4,8 @@
 
 export interface ApiClient {
   getSyncPassword(sessionToken: string): Promise<SyncCredentials>;
-  resetSyncPassword(sessionToken: string): Promise<SyncCredentials>;
+  setSyncPassword(sessionToken: string, password: string): Promise<SyncCredentials>;
+  resetSyncPassword(sessionToken: string, password?: string): Promise<SyncCredentials>;
   getMe(sessionToken: string): Promise<MeResponse>;
   health(): Promise<boolean>;
 }
@@ -12,6 +13,7 @@ export interface ApiClient {
 export interface SyncCredentials {
   username: string | null;
   password: string | null;
+  isSet: boolean;
 }
 
 export interface MeResponse {
@@ -44,7 +46,9 @@ export function makeApiClient(baseUrl: string): ApiClient {
 
   return {
     getSyncPassword: (token) => get("/v1/me/sync-password", token),
-    resetSyncPassword: (token) => post("/v1/me/sync-password/reset", token),
+    setSyncPassword: (token, password) => post("/v1/me/sync-password", token, { password }),
+    resetSyncPassword: (token, password) =>
+      post("/v1/me/sync-password/reset", token, password ? { password } : {}),
     getMe: (token) => get("/v1/me", token),
     async health() {
       try {

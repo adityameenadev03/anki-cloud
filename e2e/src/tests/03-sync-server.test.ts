@@ -22,12 +22,11 @@ describe("Sync server — authentication", () => {
     stack = await startStack();
     email = `sync-user-${crypto.randomUUID()}@example.com`;
 
-    // Create user via API (generates sync password, returns it once)
     const user = await seedUser(stack.dbPath, { email });
     await seedLocalStorage(stack.dbPath, user.id);
     const sessionToken = await createTestSession(stack.dbPath, user.id);
     const api = makeApiClient(`http://localhost:${stack.apiPort}`);
-    const creds = await api.getSyncPassword(sessionToken);
+    const creds = await api.setSyncPassword(sessionToken, "test-sync-password-1");
     // Store for tests
     (stack as TestStack & { syncPassword: string }).syncPassword = creds.password as string;
   });
@@ -88,7 +87,7 @@ describe("Sync server — stateless re-hydration", () => {
     await seedLocalStorage(stack.dbPath, user.id);
     const sessionToken = await createTestSession(stack.dbPath, user.id);
     const api = makeApiClient(`http://localhost:${stack.apiPort}`);
-    const creds = await api.getSyncPassword(sessionToken);
+    const creds = await api.setSyncPassword(sessionToken, "test-sync-password-2");
 
     const sync = makeSyncClient(`http://localhost:${stack.syncPort}`);
     hkey = await sync.hostKey(email, creds.password as string);

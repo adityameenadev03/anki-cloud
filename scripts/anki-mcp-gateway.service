@@ -1,0 +1,15 @@
+[Unit]
+Description=anki-cloud MCP gateway for grok.com
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/anki-cloud
+ExecStart=/home/ubuntu/anki-cloud/scripts/start-mcp-gateway.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
